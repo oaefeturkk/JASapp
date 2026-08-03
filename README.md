@@ -24,13 +24,8 @@ Once GitHub Pages is enabled for this repo, the app will be available at:
 4. Participant optionally rates their **final confidence**.
 5. After all questions, a results screen summarizes trust patterns and decision metrics.
 
-## Deployment
-
-This is a static, single-file HTML/CSS/JS app — no build step required.
-
-1. Enable **GitHub Pages**: `Settings → Pages → Source: Deploy from a branch → main / (root)`
-2. Make sure the main HTML file is named `index.html`
-3. Visit the published URL after a minute or two
+## LINK
+https://oaefeturkk.github.io/JASapp/
 
 ## Data Collection
 
