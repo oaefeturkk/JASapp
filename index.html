@@ -285,16 +285,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Hidden Netlify form for research data collection -->
-  <form name="jas-research-data" data-netlify="true" netlify-honeypot="bot-field" hidden>
-    <input type="text" name="nickname" />
-    <input type="email" name="email" />
-    <input type="text" name="language" />
-    <input type="text" name="consentGiven" />
-    <input type="text" name="results" />
-    <input type="text" name="timestamp" />
-  </form>
 </div>
 
 <script>
@@ -1044,8 +1034,7 @@
         truth: r.question.truth, advisor: r.inferredAdvisor, woa: r.woa,
         confInit: r.initialConfidence, confFinal: r.finalConfidence
       }));
-      const formData = new URLSearchParams();
-      formData.append('form-name', 'jas-research-data');
+      const formData = new FormData();
       formData.append('nickname', nickname || 'Anonymous');
       formData.append('email', email || 'N/A');
       formData.append('language', lang);
@@ -1053,10 +1042,10 @@
       formData.append('results', JSON.stringify(summary));
       formData.append('timestamp', new Date().toISOString());
 
-      fetch('/', {
+      fetch('https://formspree.io/f/mjgnneop', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: formData.toString()
+        headers: { 'Accept': 'application/json' },
+        body: formData
       }).catch(err => console.log('Form submission note:', err));
     } catch(e){}
   }
