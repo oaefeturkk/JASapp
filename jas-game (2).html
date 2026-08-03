@@ -1,0 +1,1078 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Judge-Advisor System — Who Do You Trust?</title>
+<style>
+  :root{
+    --bg-900:#0A0E27;
+    --bg-800:#101538;
+    --panel:#141836;
+    --gold-400:#E8C468;
+    --teal-400:#5FC2B0;
+    --teal-600:#3C8F80;
+    --ai-400:#7B5CFF;
+    --human-400:#5FA8E8;
+    --anon-400:#E88F5F;
+    --text-100:#F2F3F8;
+    --text-300:#B9BEDA;
+    --text-500:#8388AC;
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;width:100%;min-height:100%;background:var(--bg-900);color:var(--text-100);}
+  #app{position:relative;min-height:100vh;overflow-x:hidden;}
+
+  .bg-glow{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:radial-gradient(ellipse at 20% 10%,rgba(123,92,255,.16) 0%,transparent 45%),
+               radial-gradient(ellipse at 85% 15%,rgba(95,168,232,.14) 0%,transparent 45%),
+               radial-gradient(ellipse at 50% 95%,rgba(232,143,95,.10) 0%,transparent 50%);}
+
+  #topbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;
+    padding:16px 28px;background:rgba(10,14,39,.72);backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.08);}
+  #wordmarkWrap{line-height:1.25;}
+  #wordmark{font-size:18px;font-weight:700;letter-spacing:.01em;}
+  #subtitle{font-size:11.5px;color:var(--text-300);}
+  #chips{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:flex-end;}
+  .chip{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:8px 14px;font-weight:600;font-size:13px;}
+  .chip.score{background:var(--gold-400);color:#241C05;border:none;}
+  #langBtn{font-size:12px;display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.14);border-radius:20px;padding:8px 14px;cursor:pointer;user-select:none;}
+  #langBtn:hover{background:rgba(255,255,255,.12);}
+
+  main{position:relative;z-index:5;max-width:920px;margin:0 auto;padding:32px 20px 80px;}
+
+  /* ---------- overlay screens (consent / end) ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(8,10,28,.92);backdrop-filter:blur(6px);
+    display:flex;align-items:center;justify-content:center;z-index:200;padding:24px;overflow-y:auto;}
+  .overlay-card{background:var(--panel);border:1px solid rgba(255,255,255,.12);border-radius:22px;
+    max-width:560px;width:100%;padding:36px 34px;box-shadow:0 20px 60px rgba(0,0,0,.5);
+    animation:cardIn .5s cubic-bezier(.22,.61,.36,1);}
+  @keyframes cardIn{from{opacity:0;transform:translateY(18px) scale(.98);}to{opacity:1;transform:translateY(0) scale(1);}}
+  .kicker{font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--teal-400);font-weight:700;margin-bottom:10px;}
+  .overlay-card h1{font-size:24px;margin:0 0 12px;}
+  .overlay-card p{font-size:14.5px;color:var(--text-300);line-height:1.65;margin:0 0 16px;}
+  .overlay-card ol{font-size:14px;color:var(--text-300);line-height:1.75;padding-left:20px;margin:0 0 18px;}
+
+  .user-fields{display:flex;flex-direction:column;gap:14px;margin:18px 0 22px;}
+  .field-group{display:flex;flex-direction:column;gap:6px;}
+  .field-group label{font-size:12px;color:var(--text-300);font-weight:600;}
+  .input-field{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.2);border-radius:10px;
+    padding:11px 14px;color:var(--text-100);font-size:14px;outline:none;transition:border-color .15s;}
+  .input-field:focus{border-color:var(--teal-400);background:rgba(255,255,255,.12);}
+  .checkbox-label{display:flex;align-items:flex-start;gap:9px;font-size:12.5px;color:var(--text-100);cursor:pointer;line-height:1.5;}
+  .checkbox-label input{accent-color:var(--teal-400);margin-top:2px;flex-shrink:0;}
+  .link-btn{background:none;border:none;color:var(--teal-400);font-size:11.5px;text-decoration:underline;
+    cursor:pointer;padding:0;text-align:left;font-family:inherit;margin-top:4px;}
+
+  .btn{background:var(--teal-400);color:#0A0E27;border:none;border-radius:13px;padding:14px 30px;
+    font-size:15px;font-weight:700;cursor:pointer;transition:background .15s,transform .1s;}
+  .btn:hover{background:var(--teal-600);color:#fff;}
+  .btn:active{transform:scale(.98);}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn.ghost{background:rgba(255,255,255,.08);color:var(--text-100);border:1px solid rgba(255,255,255,.2);}
+  .btn.ghost:hover{background:rgba(255,255,255,.14);}
+  .hidden{display:none !important;}
+
+  .modal-overlay{position:fixed;inset:0;background:rgba(5,8,20,.88);backdrop-filter:blur(8px);z-index:300;
+    display:flex;align-items:center;justify-content:center;padding:20px;}
+  .modal-card{background:var(--panel);border:1px solid rgba(255,255,255,.18);border-radius:18px;padding:26px 28px;
+    max-width:520px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.6);max-height:82vh;overflow-y:auto;}
+  .modal-card h2{margin-top:0;font-size:19px;color:var(--gold-400);}
+  .modal-body{font-size:13px;color:var(--text-300);line-height:1.65;margin-bottom:20px;}
+  .modal-body p{margin:0 0 10px;}
+  .modal-body b{color:var(--text-100);}
+
+  /* ---------- progress ---------- */
+  #progressWrap{display:flex;align-items:center;gap:10px;margin-bottom:26px;}
+  #progressBarOuter{flex:1;height:6px;border-radius:4px;background:rgba(255,255,255,.1);overflow:hidden;}
+  #progressBarInner{height:100%;background:linear-gradient(90deg,var(--teal-400),var(--gold-400));width:0%;
+    transition:width .5s cubic-bezier(.22,.61,.36,1);}
+  #progressText{font-size:12px;color:var(--text-500);white-space:nowrap;font-weight:600;}
+
+  /* ---------- question card ---------- */
+  .q-card{background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:32px;
+    animation:cardIn .45s cubic-bezier(.22,.61,.36,1);box-shadow:0 12px 40px rgba(0,0,0,.35);}
+  .q-eyebrow{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-500);font-weight:700;margin-bottom:10px;}
+  .q-text{font-size:20px;line-height:1.5;margin:0 0 26px;font-weight:600;}
+
+  .phase-label{font-size:12.5px;color:var(--teal-400);font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
+  .phase-label .dot{width:7px;height:7px;border-radius:50%;background:var(--teal-400);animation:blink 1.6s ease-in-out infinite;}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.35;}}
+
+  .entry-row{display:flex;gap:12px;align-items:center;margin-bottom:6px;}
+  .num-input{flex:1;background:rgba(255,255,255,.06);border:2px solid rgba(255,255,255,.16);border-radius:14px;
+    padding:16px 18px;color:var(--text-100);font-size:22px;font-weight:700;outline:none;transition:border-color .15s;}
+  .num-input:focus{border-color:var(--teal-400);}
+  .num-input.shake{animation:shakeX .4s ease;}
+  @keyframes shakeX{0%,100%{transform:translateX(0);}20%{transform:translateX(-8px);}40%{transform:translateX(8px);}60%{transform:translateX(-6px);}80%{transform:translateX(6px);}}
+  .hint{font-size:12px;color:var(--text-500);margin:8px 0 20px;}
+
+  /* confidence slider */
+  .conf-wrap{margin:8px 0 24px;}
+  .conf-label{font-size:13.5px;color:var(--text-300);margin-bottom:14px;font-weight:600;}
+  .conf-track{position:relative;height:8px;border-radius:5px;background:rgba(255,255,255,.1);margin:0 6px 10px;}
+  .conf-fill{position:absolute;left:0;top:0;height:100%;border-radius:5px;background:linear-gradient(90deg,#5FA8E8,var(--teal-400));width:0%;transition:width .12s ease;}
+  .conf-handle{position:absolute;top:50%;width:22px;height:22px;border-radius:50%;background:#fff;
+    border:3px solid var(--teal-400);transform:translate(-50%,-50%);box-shadow:0 2px 8px rgba(0,0,0,.4);cursor:grab;transition:left .12s ease;}
+  .conf-ticks{display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-500);padding:0 4px;}
+  .conf-value{text-align:center;font-size:26px;font-weight:800;color:var(--teal-400);margin:10px 0 4px;}
+
+  /* advisors */
+  .advisors-title{font-size:13px;color:var(--text-300);font-weight:700;margin:4px 0 16px;text-align:center;}
+  .advisors-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:24px;}
+  .advisor-card{position:relative;background:rgba(255,255,255,.05);border:1.5px solid rgba(255,255,255,.14);
+    border-radius:16px;padding:18px 14px;text-align:center;opacity:0;transform:translateY(16px) scale(.94);
+    transition:transform .15s ease,box-shadow .15s ease;}
+  .advisor-card.reveal{animation:advisorPop .55s cubic-bezier(.22,.61,.36,1) forwards;}
+  @keyframes advisorPop{to{opacity:1;transform:translateY(0) scale(1);}}
+  .advisor-card.ai{border-color:rgba(123,92,255,.4);}
+  .advisor-card.human{border-color:rgba(95,168,232,.4);}
+  .advisor-card.anon{border-color:rgba(232,143,95,.4);}
+  .advisor-icon{font-size:30px;margin-bottom:8px;display:block;}
+  .advisor-name{font-size:12.5px;font-weight:700;margin-bottom:10px;color:var(--text-300);}
+  .advisor-value{font-size:24px;font-weight:800;color:var(--text-100);min-height:30px;}
+  .advisor-card.selectable{cursor:pointer;}
+  .advisor-card.selectable:hover{transform:translateY(-3px) scale(1.02);box-shadow:0 8px 24px rgba(0,0,0,.35);}
+  .advisor-card.selected{box-shadow:0 0 0 3px var(--gold-400),0 8px 24px rgba(232,196,104,.25);}
+  .advisor-card.selected::after{content:'✓';position:absolute;top:8px;right:10px;color:var(--gold-400);font-weight:900;font-size:16px;}
+  .advisor-card.ai.selected{box-shadow:0 0 0 3px var(--ai-400),0 8px 24px rgba(123,92,255,.3);}
+  .advisor-card.ai.selected::after{color:var(--ai-400);}
+  .advisor-card.human.selected{box-shadow:0 0 0 3px var(--human-400),0 8px 24px rgba(95,168,232,.3);}
+  .advisor-card.human.selected::after{color:var(--human-400);}
+  .advisor-card.anon.selected{box-shadow:0 0 0 3px var(--anon-400),0 8px 24px rgba(232,143,95,.3);}
+  .advisor-card.anon.selected::after{color:var(--anon-400);}
+
+  .typing-dots{display:inline-flex;gap:4px;align-items:center;height:24px;}
+  .typing-dots span{width:6px;height:6px;border-radius:50%;background:var(--text-500);animation:tdot 1.1s ease-in-out infinite;}
+  .typing-dots span:nth-child(2){animation-delay:.15s;}
+  .typing-dots span:nth-child(3){animation-delay:.3s;}
+  @keyframes tdot{0%,80%,100%{transform:scale(.6);opacity:.4;}40%{transform:scale(1);opacity:1;}}
+
+  .primary-row{display:flex;justify-content:flex-end;gap:10px;margin-top:8px;}
+
+  /* trust meter */
+  .trust-note{font-size:12px;color:var(--text-500);text-align:center;margin:-8px 0 14px;}
+  .keep-own-row{text-align:center;margin-bottom:14px;}
+  .keep-own-row .link-btn{display:inline;text-align:center;}
+  #finalHint{text-align:center;min-height:18px;}
+
+  /* ---------- results ---------- */
+  .results-card{background:var(--panel);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:34px;
+    animation:cardIn .5s cubic-bezier(.22,.61,.36,1);}
+  .results-title{font-size:22px;font-weight:800;margin:0 0 6px;}
+  .results-sub{font-size:13.5px;color:var(--text-300);margin:0 0 28px;}
+  .trust-bars{display:flex;flex-direction:column;gap:16px;margin-bottom:30px;}
+  .trust-bar-row{display:flex;align-items:center;gap:14px;}
+  .trust-bar-label{width:150px;font-size:13.5px;font-weight:700;display:flex;align-items:center;gap:8px;flex-shrink:0;}
+  .trust-bar-outer{flex:1;height:26px;border-radius:8px;background:rgba(255,255,255,.06);overflow:hidden;position:relative;}
+  .trust-bar-inner{height:100%;border-radius:8px;width:0%;transition:width 1.1s cubic-bezier(.22,.61,.36,1);
+    display:flex;align-items:center;justify-content:flex-end;padding-right:10px;font-size:12.5px;font-weight:800;}
+  .trust-bar-inner.ai{background:linear-gradient(90deg,#5B3DBF,var(--ai-400));}
+  .trust-bar-inner.human{background:linear-gradient(90deg,#3B7FBF,var(--human-400));}
+  .trust-bar-inner.anon{background:linear-gradient(90deg,#BF7A3B,var(--anon-400));}
+  .trust-bar-inner.own{background:linear-gradient(90deg,#5A9E6F,#7FD99A);}
+
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:28px;}
+  .stat-box{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:16px;text-align:center;}
+  .stat-box .num{font-size:26px;font-weight:800;color:var(--gold-400);}
+  .stat-box .lbl{font-size:11px;color:var(--text-500);margin-top:4px;font-weight:600;}
+
+  .trial-log{max-height:260px;overflow-y:auto;border:1px solid rgba(255,255,255,.08);border-radius:12px;margin-bottom:26px;}
+  .trial-row{display:flex;align-items:center;gap:10px;padding:10px 14px;font-size:12.5px;border-bottom:1px solid rgba(255,255,255,.06);}
+  .trial-row:last-child{border-bottom:none;}
+  .trial-row .qn{color:var(--text-500);width:22px;flex-shrink:0;}
+  .trial-row .qtext{flex:1;color:var(--text-300);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .trial-row .badge{padding:3px 9px;border-radius:8px;font-weight:700;font-size:11px;flex-shrink:0;}
+  .badge.ai{background:rgba(123,92,255,.22);color:#B7A5FF;}
+  .badge.human{background:rgba(95,168,232,.22);color:#A6D0F5;}
+  .badge.anon{background:rgba(232,143,95,.22);color:#F3C09F;}
+  .badge.own{background:rgba(127,217,154,.22);color:#A8EEBB;}
+
+  footer{max-width:920px;margin:0 auto;padding:20px 20px 40px;text-align:center;font-size:11px;color:var(--text-500);line-height:1.7;}
+  footer a{color:var(--text-500);}
+
+  @media (max-width:640px){
+    .advisors-row{grid-template-columns:1fr;}
+    .q-text{font-size:17px;}
+    .stat-grid{grid-template-columns:1fr;}
+    .trust-bar-label{width:110px;font-size:12px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="bg-glow"></div>
+
+  <div id="topbar">
+    <div id="wordmarkWrap">
+      <div id="wordmark" data-i18n="wordmark">Who Do You Trust?</div>
+      <div id="subtitle" data-i18n="subtitle">A Judge-Advisor System Experiment</div>
+    </div>
+    <div id="chips">
+      <div id="langBtn">🌐 <span id="langLabel">EN</span></div>
+      <div class="chip"><span data-i18n="qLabel">Question</span>&nbsp;<span id="qChip">0/0</span></div>
+      <div class="chip score">⭐ <span id="scoreLabel">0</span></div>
+    </div>
+  </div>
+
+  <main>
+    <div id="gameArea"></div>
+  </main>
+
+  <footer>
+    <span data-i18n="footerLine1">© 2026 Judge-Advisor System Research Prototype. For research &amp; educational purposes only.</span><br/>
+    <span data-i18n="footerLine2">This is a simulated task — "advisors" are algorithmically generated and do not represent real people or AI systems.</span>
+  </footer>
+
+  <!-- ===================== CONSENT / START OVERLAY ===================== -->
+  <div id="startOverlay" class="overlay">
+    <div class="overlay-card">
+      <div class="kicker" data-i18n="startKicker">Judge-Advisor System · Prototype</div>
+      <h1 data-i18n="startTitle">Who Do You Trust?</h1>
+      <p data-i18n="startBody">You'll answer a series of general-knowledge estimation questions. After your first guess, three advisors — an AI Agent, a Human Expert, and an Anonymous peer — will each offer their own estimate. You'll then give a final answer, and we'll track which advisor you leaned on most.</p>
+      <ol>
+        <li data-i18n="step1">Give your initial estimate and confidence.</li>
+        <li data-i18n="step2">Watch the three advisors respond in real time.</li>
+        <li data-i18n="step3">Give your final estimate and confidence.</li>
+        <li data-i18n="step4">See your personal "trust profile" at the end.</li>
+      </ol>
+
+      <div class="user-fields">
+        <div class="field-group">
+          <label for="nicknameInput" data-i18n="nicknameLabel">Nickname:</label>
+          <input type="text" id="nicknameInput" class="input-field" placeholder="e.g. Alex" />
+        </div>
+        <div class="field-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="newsletterCheck" checked />
+            <span data-i18n="newsletterLabel">Subscribe to Cognitive Science &amp; Decision-Making research updates</span>
+          </label>
+          <input type="email" id="emailInput" class="input-field" placeholder="Email address (optional)" />
+        </div>
+        <div class="field-group">
+          <label class="checkbox-label">
+            <input type="checkbox" id="consentCheck" checked />
+            <span data-i18n="consentText">I am 18+ and agree to allow my anonymized session data (estimates, confidence, advisor choices, response times) to be used for research purposes.</span>
+          </label>
+          <button type="button" id="ethicsBtn" class="link-btn" data-i18n="ethicsBtnText">Read Informed Consent &amp; Privacy Notice</button>
+        </div>
+      </div>
+
+      <button class="btn" id="startBtn" data-i18n="startBtn" disabled>Begin</button>
+    </div>
+  </div>
+
+  <!-- ===================== ETHICS / CONSENT MODAL ===================== -->
+  <div id="ethicsModal" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h2 data-i18n="ethicsTitle">Informed Consent &amp; Privacy Notice</h2>
+      <div class="modal-body" id="ethicsBodyContent"></div>
+      <button type="button" id="closeEthicsBtn" class="btn" data-i18n="closeBtnText">Close</button>
+    </div>
+  </div>
+
+  <!-- ===================== END OVERLAY ===================== -->
+  <div id="endOverlay" class="overlay hidden">
+    <div class="overlay-card" style="max-width:640px;">
+      <div class="kicker" data-i18n="endKicker">Session Complete</div>
+      <h1 id="endTitle" data-i18n="endTitle">Your Trust Profile</h1>
+      <div id="resultsHost"></div>
+      <div class="primary-row" style="justify-content:center;margin-top:22px;">
+        <button class="btn" id="restartBtn" data-i18n="restartBtn">Try Again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hidden Netlify form for research data collection -->
+  <form name="jas-research-data" data-netlify="true" netlify-honeypot="bot-field" hidden>
+    <input type="text" name="nickname" />
+    <input type="email" name="email" />
+    <input type="text" name="language" />
+    <input type="text" name="consentGiven" />
+    <input type="text" name="results" />
+    <input type="text" name="timestamp" />
+  </form>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ============================================================
+  // i18n
+  // ============================================================
+  let lang = (navigator.language || 'en').toLowerCase().startsWith('tr') ? 'tr' : 'en';
+
+  const I18N = {
+    en: {
+      wordmark:"Who Do You Trust?", subtitle:"A Judge-Advisor System Experiment",
+      qLabel:"Question",
+      startKicker:"Judge-Advisor System · Prototype",
+      startTitle:"Who Do You Trust?",
+      startBody:"You'll answer a series of general-knowledge estimation questions. After your first guess, three advisors — an AI Agent, a Human Expert, and an Anonymous peer — will each offer their own estimate. You'll then give a final answer, and we'll track which advisor you leaned on most.",
+      step1:"Give your initial estimate and confidence.",
+      step2:"Watch the three advisors respond in real time.",
+      step3:"Give your final estimate and confidence.",
+      step4:"See your personal \"trust profile\" at the end.",
+      nicknameLabel:"Nickname:",
+      newsletterLabel:"Subscribe to Cognitive Science & Decision-Making research updates",
+      consentText:"I am 18+ and agree to allow my anonymized session data (estimates, confidence, advisor choices, response times) to be used for research purposes.",
+      ethicsBtnText:"Read Informed Consent & Privacy Notice",
+      startBtn:"Begin",
+      ethicsTitle:"Informed Consent & Privacy Notice",
+      ethicsPurposeH:"Purpose",
+      ethicsPurposeB:"You are participating in a study on the Judge-Advisor System (JAS) paradigm, examining how people weigh advice from different sources — artificial intelligence, human experts, and anonymous peers — when revising numeric estimates.",
+      ethicsVolH:"Voluntary Participation",
+      ethicsVolB:"Your participation is completely voluntary. You may stop at any time by closing your browser, with no penalty.",
+      ethicsDataH:"Data Collected",
+      ethicsDataB:"Initial and final numeric estimates, confidence ratings, which advisor (if any) you aligned with, and response times. If you provide a nickname or email, this is stored only to personalize your session and, if you opt in, send research updates.",
+      ethicsPrivH:"Confidentiality",
+      ethicsPrivB:"All behavioral data is anonymized for analysis and stored securely. No identifying information is required to participate.",
+      ethicsRiskH:"Risks & Benefits",
+      ethicsRiskB:"There are no known risks beyond typical screen-based task fatigue. There is no guaranteed personal benefit; findings may contribute to research on human-AI trust and decision-making.",
+      ethicsAgeH:"Age Requirement",
+      ethicsAgeB:"Participants must be 18 years of age or older.",
+      ethicsContactH:"Contact",
+      ethicsContactB:"Questions about this study can be directed to the research team via the contact information provided by the study administrator.",
+      closeBtnText:"Close",
+      phaseInitial:"Initial estimate",
+      phaseConfInitial:"How confident are you?",
+      phaseAdvisors:"Advisors are responding…",
+      phaseFinal:"Final estimate",
+      phaseConfFinal:"How confident are you now?",
+      entryPlaceholder:"Type your numeric estimate…",
+      entryHint:"Enter a number, then press Continue.",
+      entryWarning:"Please enter a valid number.",
+      confHintLabel:"Drag the slider or use ← → arrow keys",
+      confNotSet:"Set a rating to continue",
+      continueBtn:"Continue",
+      submitFinalBtn:"Submit Final Answer",
+      advisorsTitle:"Three advisors have weighed in — click the one you trust most as your final answer.",
+      aiName:"AI Agent",
+      humanName:"Human Expert",
+      anonName:"Anonymous (a peer)",
+      trustNote:"Clicking a card sets that advisor's value as your final answer — this is what we use to see who you trusted most.",
+      advisorsHint:"Waiting for all three advisors to respond…",
+      advisorsHintReady:"Click an advisor's card to lock in their value as your final answer.",
+      keepOwnLink:"None of them — keep my own initial estimate",
+      confSkipLink:"Skip — I'm not sure",
+      nextQuestionBtn:"Next Question",
+      seeResultsBtn:"See My Results",
+      endKicker:"Session Complete",
+      endTitle:"Your Trust Profile",
+      resultsSub:(n)=> n ? `Nice work, ${n}! Here's how your final answers leaned across ${'{{TOTAL}}'} questions.` : `Here's how your final answers leaned across {{TOTAL}} questions.`,
+      trustBarLabel:{ai:"AI Agent",human:"Human Expert",anon:"Anonymous",own:"Kept Own Estimate"},
+      statAvgShiftLabel:"Avg. Weight of Advice",
+      statConfGainLabel:"Avg. Confidence Gain",
+      statAccuracyLabel:"Avg. Absolute Error",
+      logHeader:"Trial-by-trial log",
+      restartBtn:"Try Again",
+      footerLine1:"© 2026 Judge-Advisor System Research Prototype. For research & educational purposes only.",
+      footerLine2:"This is a simulated task — \"advisors\" are algorithmically generated and do not represent real people or AI systems.",
+      questions: [
+        {id:'q1', text:'What percentage of the Earth\'s surface is covered by water?', truth:71, unit:'%'},
+        {id:'q2', text:'In what year was the World Wide Web first made publicly available?', truth:1991, unit:''},
+        {id:'q3', text:'What is the average human body temperature in Fahrenheit?', truth:98.6, unit:'°F'},
+        {id:'q4', text:'How many bones are in the adult human body?', truth:206, unit:''},
+        {id:'q5', text:'What is the boiling point of water at sea level, in Celsius?', truth:100, unit:'°C'},
+        {id:'q6', text:'Approximately how many languages are spoken in the world today?', truth:7000, unit:''},
+        {id:'q7', text:'What percentage of the human brain is water?', truth:73, unit:'%'},
+        {id:'q8', text:'How many time zones does Russia span?', truth:11, unit:''}
+      ]
+    },
+    tr: {
+      wordmark:"Kime Güveniyorsun?", subtitle:"Bir Yargıç-Danışman Sistemi Deneyi",
+      qLabel:"Soru",
+      startKicker:"Yargıç-Danışman Sistemi · Prototip",
+      startTitle:"Kime Güveniyorsun?",
+      startBody:"Bir dizi genel kültür tahmin sorusu yanıtlayacaksınız. İlk tahmininizden sonra üç danışman — bir Yapay Zeka Ajanı, bir İnsan Uzman ve Anonim bir arkadaş — kendi tahminlerini sunacak. Ardından son cevabınızı vereceksiniz ve en çok hangi danışmana yaslandığınızı izleyeceğiz.",
+      step1:"İlk tahmininizi ve güven düzeyinizi belirtin.",
+      step2:"Üç danışmanın gerçek zamanlı yanıtlarını izleyin.",
+      step3:"Son tahmininizi ve güven düzeyinizi belirtin.",
+      step4:"Sonunda kişisel \"güven profilinizi\" görün.",
+      nicknameLabel:"Rumuz:",
+      newsletterLabel:"Bilişsel Bilim ve Karar Verme araştırma güncellemelerine abone ol",
+      consentText:"18 yaşında veya daha büyüğüm ve anonimleştirilmiş oturum verilerimin (tahminler, güven düzeyi, danışman tercihleri, tepki süreleri) araştırma amacıyla kullanılmasına izin veriyorum.",
+      ethicsBtnText:"Bilgilendirilmiş Onam ve Gizlilik Bildirimini Oku",
+      startBtn:"Başla",
+      ethicsTitle:"Bilgilendirilmiş Onam ve Gizlilik Bildirimi",
+      ethicsPurposeH:"Amaç",
+      ethicsPurposeB:"İnsanların sayısal tahminlerini gözden geçirirken yapay zeka, insan uzmanlar ve anonim akranlar gibi farklı kaynaklardan gelen tavsiyeleri nasıl değerlendirdiğini inceleyen Yargıç-Danışman Sistemi (JAS) paradigmasına dayalı bir araştırmaya katılıyorsunuz.",
+      ethicsVolH:"Gönüllü Katılım",
+      ethicsVolB:"Katılımınız tamamen gönüllüdür. Tarayıcınızı kapatarak herhangi bir ceza olmaksızın istediğiniz zaman durdurabilirsiniz.",
+      ethicsDataH:"Toplanan Veriler",
+      ethicsDataB:"İlk ve son sayısal tahminler, güven puanları, hangi danışmanla (varsa) hizalandığınız ve tepki süreleri. Rumuz veya e-posta sağlarsanız, bu yalnızca oturumunuzu kişiselleştirmek ve tercih ederseniz araştırma güncellemeleri göndermek için saklanır.",
+      ethicsPrivH:"Gizlilik",
+      ethicsPrivB:"Tüm davranışsal veriler analiz için anonimleştirilir ve güvenli bir şekilde saklanır. Katılmak için kimlik bilgisi gerekmez.",
+      ethicsRiskH:"Riskler ve Faydalar",
+      ethicsRiskB:"Tipik ekran tabanlı görev yorgunluğu dışında bilinen bir risk yoktur. Garanti edilen kişisel bir fayda yoktur; bulgular insan-yapay zeka güveni ve karar verme araştırmalarına katkıda bulunabilir.",
+      ethicsAgeH:"Yaş Şartı",
+      ethicsAgeB:"Katılımcıların 18 yaşında veya daha büyük olması gerekmektedir.",
+      ethicsContactH:"İletişim",
+      ethicsContactB:"Bu çalışma hakkındaki sorular, araştırma ekibi tarafından sağlanan iletişim bilgileri aracılığıyla yöneltilebilir.",
+      closeBtnText:"Kapat",
+      phaseInitial:"İlk tahmin",
+      phaseConfInitial:"Ne kadar eminsiniz?",
+      phaseAdvisors:"Danışmanlar yanıt veriyor…",
+      phaseFinal:"Son tahmin",
+      phaseConfFinal:"Şimdi ne kadar eminsiniz?",
+      entryPlaceholder:"Sayısal tahmininizi yazın…",
+      entryHint:"Bir sayı girin, ardından Devam Et\'e basın.",
+      entryWarning:"Lütfen geçerli bir sayı girin.",
+      confHintLabel:"Kaydırıcıyı sürükleyin veya ← → ok tuşlarını kullanın",
+      confNotSet:"Devam etmek için bir değer seçin",
+      continueBtn:"Devam Et",
+      submitFinalBtn:"Son Cevabı Gönder",
+      advisorsTitle:"Üç danışman görüşünü bildirdi — son cevabınız olarak en çok güvendiğinize tıklayın.",
+      aiName:"Yapay Zeka Ajanı",
+      humanName:"İnsan Uzman",
+      anonName:"Anonim (bir arkadaş)",
+      trustNote:"Bir karta tıklamak, o danışmanın değerini son cevabınız olarak belirler — böylece en çok kime güvendiğinizi anlayabiliyoruz.",
+      advisorsHint:"Üç danışmanın da yanıt vermesi bekleniyor…",
+      advisorsHintReady:"Değerini son cevabınız olarak kabul etmek için bir danışman kartına tıklayın.",
+      keepOwnLink:"Hiçbiri — ilk tahminimi koruyorum",
+      confSkipLink:"Atla — emin değilim",
+      nextQuestionBtn:"Sonraki Soru",
+      seeResultsBtn:"Sonuçlarımı Gör",
+      endKicker:"Oturum Tamamlandı",
+      endTitle:"Güven Profiliniz",
+      resultsSub:(n)=> n ? `Aferin, ${n}! {{TOTAL}} soru boyunca son cevaplarınızın dağılımı şöyle.` : `{{TOTAL}} soru boyunca son cevaplarınızın dağılımı şöyle.`,
+      trustBarLabel:{ai:"Yapay Zeka Ajanı",human:"İnsan Uzman",anon:"Anonim",own:"Kendi Tahminini Korudu"},
+      statAvgShiftLabel:"Ort. Tavsiye Ağırlığı",
+      statConfGainLabel:"Ort. Güven Artışı",
+      statAccuracyLabel:"Ort. Mutlak Hata",
+      logHeader:"Deneme deneme kayıt",
+      restartBtn:"Tekrar Dene",
+      footerLine1:"© 2026 Yargıç-Danışman Sistemi Araştırma Prototipi. Yalnızca araştırma ve eğitim amaçlıdır.",
+      footerLine2:"Bu simüle edilmiş bir görevdir — \"danışmanlar\" algoritmik olarak üretilmiştir ve gerçek insanları veya yapay zeka sistemlerini temsil etmez.",
+      questions: [
+        {id:'q1', text:'Dünya yüzeyinin yüzde kaçı suyla kaplıdır?', truth:71, unit:'%'},
+        {id:'q2', text:'World Wide Web hangi yıl halka açık hale getirildi?', truth:1991, unit:''},
+        {id:'q3', text:'Ortalama insan vücut sıcaklığı Fahrenheit cinsinden kaçtır?', truth:98.6, unit:'°F'},
+        {id:'q4', text:'Yetişkin bir insan vücudunda kaç kemik vardır?', truth:206, unit:''},
+        {id:'q5', text:'Deniz seviyesinde suyun kaynama noktası Celsius cinsinden kaçtır?', truth:100, unit:'°C'},
+        {id:'q6', text:'Günümüzde dünyada yaklaşık kaç dil konuşulmaktadır?', truth:7000, unit:''},
+        {id:'q7', text:'İnsan beyninin yüzde kaçı sudur?', truth:73, unit:'%'},
+        {id:'q8', text:'Rusya kaç zaman dilimine yayılmaktadır?', truth:11, unit:''}
+      ]
+    }
+  };
+
+  function t(key){ return I18N[lang][key]; }
+
+  // ============================================================
+  // STATE
+  // ============================================================
+  let userNickname = '';
+  let score = 0;
+  let currentQIndex = 0;
+  let questionOrder = [];
+  let trialResults = [];
+  let currentTrial = null; // holds in-progress trial data
+
+  // ============================================================
+  // DOM refs
+  // ============================================================
+  const gameArea = document.getElementById('gameArea');
+  const qChip = document.getElementById('qChip');
+  const scoreLabel = document.getElementById('scoreLabel');
+  const langBtn = document.getElementById('langBtn');
+  const langLabel = document.getElementById('langLabel');
+  const nicknameInput = document.getElementById('nicknameInput');
+  const emailInput = document.getElementById('emailInput');
+  const newsletterCheck = document.getElementById('newsletterCheck');
+  const consentCheck = document.getElementById('consentCheck');
+  const startBtn = document.getElementById('startBtn');
+  const ethicsBtn = document.getElementById('ethicsBtn');
+  const ethicsModal = document.getElementById('ethicsModal');
+  const closeEthicsBtn = document.getElementById('closeEthicsBtn');
+  const ethicsBodyContent = document.getElementById('ethicsBodyContent');
+
+  // Load saved nickname/email
+  try {
+    const savedNick = localStorage.getItem('jas_nickname');
+    const savedEmail = localStorage.getItem('jas_email');
+    if (savedNick) nicknameInput.value = savedNick;
+    if (savedEmail) emailInput.value = savedEmail;
+  } catch(e){}
+
+  function refreshStartBtn(){
+    startBtn.disabled = !consentCheck.checked;
+  }
+  consentCheck.addEventListener('change', refreshStartBtn);
+
+  function applyLanguage(){
+    const dict = I18N[lang];
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.dataset.i18n;
+      if (typeof dict[key] === 'string') el.textContent = dict[key];
+    });
+    langLabel.textContent = lang.toUpperCase();
+    document.documentElement.lang = lang;
+    const total = questionOrder.length || I18N[lang].questions.length;
+    qChip.textContent = `${Math.min(currentQIndex+1, total)}/${total}`;
+  }
+
+  // Which in-trial screen is currently showing, so a language switch can
+  // redraw it in the new language without losing progress.
+  let activeScreen = null; // 'initial' | 'confInitial' | 'advisors' | 'confFinal' | null
+
+  langBtn.addEventListener('click', () => {
+    lang = lang === 'en' ? 'tr' : 'en';
+    applyLanguage();
+
+    if (!document.getElementById('startOverlay').classList.contains('hidden')) return;
+    if (!document.getElementById('endOverlay').classList.contains('hidden')) {
+      renderResults();
+      return;
+    }
+    // mid-game: redraw the current phase in the new language, preserving
+    // whatever the participant has already entered for this trial.
+    if (activeScreen === 'initial') renderInitialEstimate(true);
+    else if (activeScreen === 'confInitial') renderConfidence('initial');
+    else if (activeScreen === 'advisors') renderAdvisors(true);
+    else if (activeScreen === 'confFinal') renderConfidence('final');
+  });
+
+  function buildEthicsBody(){
+    const d = I18N[lang];
+    ethicsBodyContent.innerHTML = `
+      <p><b>${d.ethicsPurposeH}:</b> ${d.ethicsPurposeB}</p>
+      <p><b>${d.ethicsVolH}:</b> ${d.ethicsVolB}</p>
+      <p><b>${d.ethicsDataH}:</b> ${d.ethicsDataB}</p>
+      <p><b>${d.ethicsPrivH}:</b> ${d.ethicsPrivB}</p>
+      <p><b>${d.ethicsRiskH}:</b> ${d.ethicsRiskB}</p>
+      <p><b>${d.ethicsAgeH}:</b> ${d.ethicsAgeB}</p>
+      <p><b>${d.ethicsContactH}:</b> ${d.ethicsContactB}</p>
+    `;
+  }
+  ethicsBtn.addEventListener('click', () => { buildEthicsBody(); ethicsModal.classList.remove('hidden'); });
+  closeEthicsBtn.addEventListener('click', () => ethicsModal.classList.add('hidden'));
+
+  // ============================================================
+  // Advice generation — plausible, close-together values per advisor
+  // ============================================================
+  function seededNoise(base, magnitude){
+    // returns base +/- magnitude, gently randomized
+    const delta = (Math.random() * 2 - 1) * magnitude;
+    return base + delta;
+  }
+
+  function formatVal(v, unit){
+    let out;
+    if (Math.abs(v - Math.round(v)) < 0.05) out = Math.round(v).toString();
+    else out = v.toFixed(1);
+    return unit ? `${out}${unit}` : out;
+  }
+
+  function generateAdvice(truth){
+    // Each advisor proposes a value close to truth but not identical,
+    // magnitude scaled to the size of the true value.
+    const mag = Math.max(Math.abs(truth) * 0.06, 1.5);
+    const ai = seededNoise(truth, mag * 0.7);
+    const human = seededNoise(truth, mag * 1.0);
+    const anon = seededNoise(truth, mag * 1.5);
+    return { ai, human, anon };
+  }
+
+  // ============================================================
+  // Game flow
+  // ============================================================
+  function startSession(){
+    userNickname = nicknameInput.value.trim();
+    try { localStorage.setItem('jas_nickname', userNickname); } catch(e){}
+    if (newsletterCheck.checked && emailInput.value.trim()) {
+      try { localStorage.setItem('jas_email', emailInput.value.trim()); } catch(e){}
+    }
+
+    questionOrder = shuffle(I18N.en.questions.map(q => q.id));
+    currentQIndex = 0;
+    score = 0;
+    trialResults = [];
+    scoreLabel.textContent = 0;
+
+    document.getElementById('startOverlay').classList.add('hidden');
+    document.getElementById('endOverlay').classList.add('hidden');
+
+    qChip.textContent = `1/${questionOrder.length}`;
+    renderInitialEstimate();
+  }
+
+  function shuffle(arr){
+    for (let i = arr.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+  }
+
+  // Always resolves the current question against the CURRENT language,
+  // using a stable id-based order — so switching language mid-session
+  // (or having started in TR) always shows the right-language text.
+  function currentQuestion(){
+    const id = questionOrder[currentQIndex];
+    return I18N[lang].questions.find(q => q.id === id);
+  }
+
+  // ---------- Screen: initial numeric estimate ----------
+  function renderInitialEstimate(preserveTrial){
+    activeScreen = 'initial';
+    const q = currentQuestion();
+    const preservedVal = (preserveTrial && currentTrial) ? currentTrial.initialEstimate : undefined;
+    if (!preserveTrial) currentTrial = { question: q, startTime: performance.now() };
+    else currentTrial.question = q;
+
+    gameArea.innerHTML = '';
+    gameArea.appendChild(buildProgress());
+
+    const card = document.createElement('div');
+    card.className = 'q-card';
+    card.innerHTML = `
+      <div class="phase-label"><span class="dot"></span>${t('phaseInitial')}</div>
+      <div class="q-eyebrow">${t('qLabel')} ${currentQIndex+1}</div>
+      <p class="q-text">${q.text}</p>
+      <div class="entry-row">
+        <input type="text" inputmode="decimal" class="num-input" id="estInput" placeholder="${t('entryPlaceholder')}" autocomplete="off"/>
+      </div>
+      <div class="hint" id="entryHint">${t('entryHint')}</div>
+      <div class="primary-row"><button class="btn" id="estContinueBtn">${t('continueBtn')}</button></div>
+    `;
+    gameArea.appendChild(card);
+
+    const input = document.getElementById('estInput');
+    const hintEl = document.getElementById('entryHint');
+    if (preservedVal !== undefined) input.value = preservedVal;
+    input.focus();
+
+    function submit(){
+      const raw = input.value.trim().replace(',', '.');
+      const val = parseFloat(raw);
+      if (isNaN(val)){
+        input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake');
+        hintEl.textContent = t('entryWarning');
+        hintEl.style.color = '#FF7A7A';
+        return;
+      }
+      currentTrial.initialEstimate = val;
+      currentTrial.initialRT = (performance.now() - currentTrial.startTime) / 1000;
+      renderConfidence('initial');
+    }
+    document.getElementById('estContinueBtn').addEventListener('click', submit);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+  }
+
+  // ---------- Screen: confidence slider (shared for initial/final) ----------
+  function renderConfidence(stage){
+    activeScreen = stage === 'initial' ? 'confInitial' : 'confFinal';
+    currentTrial.question = currentQuestion();
+    const q = currentTrial.question;
+    const phaseText = stage === 'initial' ? t('phaseConfInitial') : t('phaseConfFinal');
+    const clockStart = performance.now();
+
+    gameArea.innerHTML = '';
+    gameArea.appendChild(buildProgress());
+
+    const card = document.createElement('div');
+    card.className = 'q-card';
+    card.innerHTML = `
+      <div class="phase-label"><span class="dot"></span>${phaseText}</div>
+      <div class="q-eyebrow">${t('qLabel')} ${currentQIndex+1}</div>
+      <p class="q-text">${q.text}</p>
+      <div class="conf-wrap">
+        <div class="conf-label">${t('confHintLabel')}</div>
+        <div class="conf-value" id="confValue">—</div>
+        <div class="conf-track" id="confTrack">
+          <div class="conf-fill" id="confFill"></div>
+          <div class="conf-handle" id="confHandle" tabindex="0" style="left:0%"></div>
+        </div>
+        <div class="conf-ticks"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span></div>
+      </div>
+      <div class="hint" id="confHint">${t('confNotSet')}</div>
+      <div class="primary-row">
+        ${stage === 'final' ? `<button type="button" class="btn ghost" id="confSkipBtn">${t('confSkipLink')}</button>` : ''}
+        <button class="btn" id="confContinueBtn">${t('continueBtn')}</button>
+      </div>
+    `;
+    gameArea.appendChild(card);
+
+    const track = document.getElementById('confTrack');
+    const fill = document.getElementById('confFill');
+    const handle = document.getElementById('confHandle');
+    const valueEl = document.getElementById('confValue');
+    const hintEl = document.getElementById('confHint');
+    let val = null;
+    let dragging = false;
+
+    function setVal(v){
+      val = Math.max(0, Math.min(100, Math.round(v)));
+      fill.style.width = val + '%';
+      handle.style.left = val + '%';
+      valueEl.textContent = val;
+      hintEl.style.color = 'var(--text-500)';
+      hintEl.textContent = t('confHintLabel');
+    }
+
+    function posToVal(clientX){
+      const rect = track.getBoundingClientRect();
+      const pct = (clientX - rect.left) / rect.width;
+      return pct * 100;
+    }
+
+    track.addEventListener('pointerdown', e => { dragging = true; setVal(posToVal(e.clientX)); });
+    window.addEventListener('pointermove', e => { if (dragging) setVal(posToVal(e.clientX)); });
+    window.addEventListener('pointerup', () => dragging = false);
+    handle.addEventListener('keydown', e => {
+      const base = val === null ? 50 : val;
+      if (e.key === 'ArrowLeft'){ setVal(base - 1); }
+      else if (e.key === 'ArrowRight'){ setVal(base + 1); }
+    });
+
+    function submit(){
+      if (val === null){
+        hintEl.textContent = t('confNotSet');
+        hintEl.style.color = '#FF7A7A';
+        return;
+      }
+      const rt = (performance.now() - clockStart) / 1000;
+      if (stage === 'initial'){
+        currentTrial.initialConfidence = val;
+        currentTrial.initialConfidenceRT = rt;
+        renderAdvisors();
+      } else {
+        currentTrial.finalConfidence = val;
+        currentTrial.finalConfidenceRT = rt;
+        finishTrial();
+      }
+    }
+    document.getElementById('confContinueBtn').addEventListener('click', submit);
+
+    if (stage === 'final'){
+      document.getElementById('confSkipBtn').addEventListener('click', () => {
+        currentTrial.finalConfidence = null;
+        currentTrial.finalConfidenceRT = (performance.now() - clockStart) / 1000;
+        finishTrial();
+      });
+    }
+  }
+
+  // ---------- Screen: advisors reveal ----------
+  function renderAdvisors(preserveTrial){
+    activeScreen = 'advisors';
+    const q = currentQuestion();
+    currentTrial.question = q;
+    // advice values must stay fixed for this trial even if language is
+    // switched mid-reveal — only generate them once per trial.
+    const advice = (preserveTrial && currentTrial.advice) ? currentTrial.advice : generateAdvice(q.truth);
+    currentTrial.advice = advice;
+    const alreadyRevealed = !!(preserveTrial && currentTrial._advisorsRevealed);
+    const priorSelection = preserveTrial ? currentTrial.selectedAdvisor : null;
+
+    gameArea.innerHTML = '';
+    gameArea.appendChild(buildProgress());
+
+    const card = document.createElement('div');
+    card.className = 'q-card';
+    card.innerHTML = `
+      <div class="phase-label"><span class="dot"></span>${t('phaseAdvisors')}</div>
+      <div class="q-eyebrow">${t('qLabel')} ${currentQIndex+1}</div>
+      <p class="q-text">${q.text}</p>
+      <div class="advisors-title">${t('advisorsTitle')}</div>
+      <div class="advisors-row">
+        <div class="advisor-card ai" data-source="ai">
+          <span class="advisor-icon">🤖</span>
+          <div class="advisor-name">${t('aiName')}</div>
+          <div class="advisor-value"><span class="typing-dots"><span></span><span></span><span></span></span></div>
+        </div>
+        <div class="advisor-card human" data-source="human">
+          <span class="advisor-icon">🧑‍⚕️</span>
+          <div class="advisor-name">${t('humanName')}</div>
+          <div class="advisor-value"><span class="typing-dots"><span></span><span></span><span></span></span></div>
+        </div>
+        <div class="advisor-card anon" data-source="anon">
+          <span class="advisor-icon">🙂</span>
+          <div class="advisor-name">${t('anonName')}</div>
+          <div class="advisor-value"><span class="typing-dots"><span></span><span></span><span></span></span></div>
+        </div>
+      </div>
+      <div class="trust-note">${t('trustNote')}</div>
+      <div class="keep-own-row">
+        <button type="button" class="link-btn" id="keepOwnBtn">${t('keepOwnLink')}</button>
+      </div>
+      <div class="hint" id="finalHint">${t('advisorsHint')}</div>
+    `;
+    gameArea.appendChild(card);
+
+    const cards = card.querySelectorAll('.advisor-card');
+    const hintEl = document.getElementById('finalHint');
+    const clockStart = performance.now();
+    let revealDone = alreadyRevealed;
+
+    function submitWithSource(src){
+      currentTrial.selectedAdvisor = src;
+      currentTrial.finalEstimate = advice[src];
+      currentTrial.finalRT = (performance.now() - clockStart) / 1000;
+      renderConfidence('final');
+    }
+
+    function submitWithOwnEstimate(){
+      currentTrial.selectedAdvisor = null;
+      currentTrial.finalEstimate = currentTrial.initialEstimate;
+      currentTrial.finalRT = (performance.now() - clockStart) / 1000;
+      renderConfidence('final');
+    }
+
+    function attachCardHandlers(){
+      cards.forEach(el => {
+        const src = el.dataset.source;
+        if (priorSelection === src) el.classList.add('selected');
+        el.addEventListener('click', () => {
+          if (!revealDone) return;
+          cards.forEach(c => c.classList.remove('selected'));
+          el.classList.add('selected');
+          submitWithSource(src);
+        });
+      });
+    }
+
+    function revealAll(){
+      const order = shuffle(['ai','human','anon']);
+      order.forEach((src, i) => {
+        const delay = 650 + i * 550 + Math.random()*250;
+        setTimeout(() => {
+          const el = card.querySelector(`.advisor-card[data-source="${src}"]`);
+          const valEl = el.querySelector('.advisor-value');
+          valEl.textContent = formatVal(advice[src], q.unit);
+          el.classList.add('reveal', 'selectable');
+        }, delay);
+      });
+      const maxDelay = 650 + 2*550 + 250 + 150;
+      setTimeout(() => {
+        revealDone = true;
+        currentTrial._advisorsRevealed = true;
+        hintEl.textContent = t('advisorsHintReady');
+      }, maxDelay);
+    }
+
+    if (alreadyRevealed){
+      // language was switched after reveal already happened — show values instantly
+      cards.forEach(el => {
+        const src = el.dataset.source;
+        el.querySelector('.advisor-value').textContent = formatVal(advice[src], q.unit);
+        el.classList.add('reveal', 'selectable');
+      });
+      hintEl.textContent = t('advisorsHintReady');
+    } else {
+      revealAll();
+    }
+
+    attachCardHandlers();
+    document.getElementById('keepOwnBtn').addEventListener('click', submitWithOwnEstimate);
+  }
+
+  // ---------- finish a trial, score it, advance ----------
+  function finishTrial(){
+    const q = currentTrial.question;
+    const { initialEstimate, finalEstimate, advice } = currentTrial;
+
+    // Trust attribution: 'own' when the participant explicitly kept their
+    // initial estimate; otherwise the advisor card they clicked.
+    const keptOwn = currentTrial.hasOwnProperty('selectedAdvisor') && currentTrial.selectedAdvisor === null;
+    const refSource = keptOwn ? null : currentTrial.selectedAdvisor;
+    currentTrial.inferredAdvisor = keptOwn ? 'own' : refSource;
+
+    // Weight of Advice — undefined when the participant kept their own estimate
+    // (there is no advisor value to weight against).
+    let woa = null;
+    if (!keptOwn){
+      const denom = advice[refSource] - initialEstimate;
+      if (Math.abs(denom) > 1e-9){
+        woa = (finalEstimate - initialEstimate) / denom;
+      }
+    } else {
+      woa = 0;
+    }
+    currentTrial.woa = woa;
+
+    const absError = Math.abs(finalEstimate - q.truth);
+    currentTrial.absError = absError;
+
+    // scoring: reward getting closer to truth + reward engaging thoughtfully
+    const initialError = Math.abs(initialEstimate - q.truth);
+    const improvement = Math.max(0, initialError - absError);
+    const gained = Math.round(10 + Math.min(40, improvement));
+    score += gained;
+    scoreLabel.textContent = score;
+    pulseScore(gained);
+
+    trialResults.push(Object.assign({}, currentTrial));
+
+    // brief feedback then advance
+    setTimeout(() => {
+      currentQIndex++;
+      if (currentQIndex < questionOrder.length){
+        qChip.textContent = `${currentQIndex+1}/${questionOrder.length}`;
+        renderInitialEstimate();
+      } else {
+        endSession();
+      }
+    }, 550);
+  }
+
+  function pulseScore(gained){
+    const chip = document.querySelector('.chip.score');
+    const popup = document.createElement('div');
+    popup.className = 'score-popup-fixed';
+    popup.textContent = '+' + gained;
+    popup.style.cssText = 'position:fixed;z-index:999;font-weight:800;font-size:18px;color:var(--gold-400);pointer-events:none;transition:transform .8s ease,opacity .8s ease;opacity:1;';
+    const rect = chip.getBoundingClientRect();
+    popup.style.left = (rect.left + rect.width/2) + 'px';
+    popup.style.top = rect.top + 'px';
+    popup.style.transform = 'translate(-50%,0)';
+    document.body.appendChild(popup);
+    requestAnimationFrame(() => {
+      popup.style.transform = 'translate(-50%,-30px)';
+      popup.style.opacity = '0';
+    });
+    setTimeout(() => popup.remove(), 850);
+  }
+
+  function buildProgress(){
+    const wrap = document.createElement('div');
+    wrap.id = 'progressWrap';
+    const pct = Math.round((currentQIndex / questionOrder.length) * 100);
+    wrap.innerHTML = `
+      <div id="progressBarOuter"><div id="progressBarInner" style="width:${pct}%"></div></div>
+      <div id="progressText">${currentQIndex}/${questionOrder.length}</div>
+    `;
+    return wrap;
+  }
+
+  // ============================================================
+  // Results
+  // ============================================================
+  function renderResults(){
+    const dict = I18N[lang];
+    const counts = { ai:0, human:0, anon:0, own:0 };
+    trialResults.forEach(r => { counts[r.inferredAdvisor] = (counts[r.inferredAdvisor]||0) + 1; });
+    const total = trialResults.length || 1;
+
+    const woaVals = trialResults.map(r => r.woa).filter(v => v !== null && isFinite(v));
+    const avgWoa = woaVals.length ? (woaVals.reduce((a,b)=>a+b,0) / woaVals.length) : 0;
+    const confGains = trialResults
+      .filter(r => r.finalConfidence !== null && r.finalConfidence !== undefined)
+      .map(r => r.finalConfidence - r.initialConfidence);
+    const avgConfGain = confGains.length ? (confGains.reduce((a,b)=>a+b,0) / confGains.length) : null;
+    const avgErr = trialResults.reduce((a,r)=>a+r.absError,0) / (trialResults.length||1);
+
+    const host = document.getElementById('resultsHost');
+    const subLine = dict.resultsSub(userNickname).replace('{{TOTAL}}', trialResults.length);
+
+    let logRows = trialResults.map((r,i) => {
+      const badgeClass = r.inferredAdvisor;
+      const badgeLabel = dict.trustBarLabel[r.inferredAdvisor];
+      return `<div class="trial-row">
+        <span class="qn">${i+1}</span>
+        <span class="qtext">${r.question.text}</span>
+        <span class="badge ${badgeClass}">${badgeLabel}</span>
+      </div>`;
+    }).join('');
+
+    host.innerHTML = `
+      <p class="results-sub">${subLine}</p>
+      <div class="trust-bars">
+        <div class="trust-bar-row">
+          <div class="trust-bar-label">🤖 ${dict.trustBarLabel.ai}</div>
+          <div class="trust-bar-outer"><div class="trust-bar-inner ai" id="barAi">0%</div></div>
+        </div>
+        <div class="trust-bar-row">
+          <div class="trust-bar-label">🧑‍⚕️ ${dict.trustBarLabel.human}</div>
+          <div class="trust-bar-outer"><div class="trust-bar-inner human" id="barHuman">0%</div></div>
+        </div>
+        <div class="trust-bar-row">
+          <div class="trust-bar-label">🙂 ${dict.trustBarLabel.anon}</div>
+          <div class="trust-bar-outer"><div class="trust-bar-inner anon" id="barAnon">0%</div></div>
+        </div>
+        <div class="trust-bar-row">
+          <div class="trust-bar-label">✋ ${dict.trustBarLabel.own}</div>
+          <div class="trust-bar-outer"><div class="trust-bar-inner own" id="barOwn">0%</div></div>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="num">${avgWoa.toFixed(2)}</div><div class="lbl">${dict.statAvgShiftLabel}</div></div>
+        <div class="stat-box"><div class="num">${avgConfGain===null ? '—' : (avgConfGain>=0?'+':'') + avgConfGain.toFixed(1)}</div><div class="lbl">${dict.statConfGainLabel}</div></div>
+        <div class="stat-box"><div class="num">${avgErr.toFixed(1)}</div><div class="lbl">${dict.statAccuracyLabel}</div></div>
+      </div>
+      <div class="q-eyebrow" style="margin-bottom:10px;">${dict.logHeader}</div>
+      <div class="trial-log">${logRows}</div>
+    `;
+
+    requestAnimationFrame(() => {
+      const aiPct = Math.round((counts.ai/total)*100);
+      const humanPct = Math.round((counts.human/total)*100);
+      const anonPct = Math.round((counts.anon/total)*100);
+      const ownPct = Math.round((counts.own/total)*100);
+      const barAi = document.getElementById('barAi');
+      const barHuman = document.getElementById('barHuman');
+      const barAnon = document.getElementById('barAnon');
+      const barOwn = document.getElementById('barOwn');
+      setTimeout(() => {
+        barAi.style.width = aiPct + '%'; barAi.textContent = aiPct + '%';
+        barHuman.style.width = humanPct + '%'; barHuman.textContent = humanPct + '%';
+        barAnon.style.width = anonPct + '%'; barAnon.textContent = anonPct + '%';
+        barOwn.style.width = ownPct + '%'; barOwn.textContent = ownPct + '%';
+      }, 80);
+    });
+  }
+
+  function endSession(){
+    renderResults();
+    document.getElementById('endOverlay').classList.remove('hidden');
+
+    const consentGiven = consentCheck.checked;
+    const userEmail = emailInput.value.trim();
+    sendResearchData(userNickname, userEmail, consentGiven);
+  }
+
+  function sendResearchData(nickname, email, consentGiven){
+    if (!consentGiven) return;
+    try {
+      const summary = trialResults.map(r => ({
+        q: r.question.id, initial: r.initialEstimate, final: r.finalEstimate,
+        truth: r.question.truth, advisor: r.inferredAdvisor, woa: r.woa,
+        confInit: r.initialConfidence, confFinal: r.finalConfidence
+      }));
+      const formData = new URLSearchParams();
+      formData.append('form-name', 'jas-research-data');
+      formData.append('nickname', nickname || 'Anonymous');
+      formData.append('email', email || 'N/A');
+      formData.append('language', lang);
+      formData.append('consentGiven', 'true');
+      formData.append('results', JSON.stringify(summary));
+      formData.append('timestamp', new Date().toISOString());
+
+      fetch('/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData.toString()
+      }).catch(err => console.log('Form submission note:', err));
+    } catch(e){}
+  }
+
+  // ============================================================
+  // Wire up start/restart
+  // ============================================================
+  startBtn.addEventListener('click', () => { if (!startBtn.disabled) startSession(); });
+  document.getElementById('restartBtn').addEventListener('click', () => {
+    document.getElementById('endOverlay').classList.add('hidden');
+    document.getElementById('startOverlay').classList.remove('hidden');
+  });
+
+  refreshStartBtn();
+  applyLanguage();
+})();
+</script>
+</body>
+</html>
