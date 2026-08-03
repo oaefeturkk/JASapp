@@ -1046,6 +1046,16 @@
         method: 'POST',
         headers: { 'Accept': 'application/json' },
         body: formData
+      }).then(async (response) => {
+        if (response.ok) {
+          console.log('Research data submitted successfully.');
+        } else {
+          const data = await response.json().catch(() => null);
+          const errMsg = data && data.errors
+            ? data.errors.map(er => er.message).join(', ')
+            : 'Unknown submission error';
+          console.log('Form submission failed:', errMsg);
+        }
       }).catch(err => console.log('Form submission note:', err));
     } catch(e){}
   }
